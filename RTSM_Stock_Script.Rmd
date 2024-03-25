@@ -1,0 +1,590 @@
+---
+title: "Dow Jones Industrial"
+output: html_notebook
+Auther: Sakshi Patil
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r}
+install.packages('quantmod')
+install.packages('tseries')
+install.packages('forecast')
+install.packages('car')
+install.packages('FinTS')
+install.packages('rugarch')
+install.packages('utf8')
+install.packages('ggplot2')
+library(quantmod)
+library(tseries)
+library(car)
+library(FinTS)
+library(utf8)
+library(ggplot2)
+library(forecast)
+library(rugarch)
+lapply(packages, require, character.only = TRUE) 
+```
+
+```{r}
+packages = c('quantmod','car','forecast','tseries','FinTS', 'rugarch','utf8','ggplot2')
+install.packages(packages, dependencies = TRUE)
+lapply(packages, require, character.only=TRUE)
+```
+
+**Downloading the stock data**
+
+```{r}
+getSymbols(Symbols = '^DJI', 
+           src = 'yahoo', 
+           from = as.Date('2016-01-01'), 
+           to = as.Date('2023-12-31'),
+           periodicity = 'daily')
+
+Stock_price = na.omit(DJI$DJI.Adjusted) # Adjusted Closing Price, omitting null values
+class(Stock_price) # xts (Time-Series) Object
+View(Stock_price)
+
+Stock_return = na.omit(diff(log(Stock_price))); plot(Stock_return) # Returns of TATA
+plot(Stock_price)
+
+```
+
+**ADF Test for Stationarity**
+
+**Objective:**
+
+To check whether the stock return data and closing price data are
+stationary or not
+
+**Analysis:**
+
+The Augmented Dickey-Fuller Test is a statistical test used to determine
+whether a given time series data is stationary or not. Stationarity of
+time series data indicates that the mean of the series do not change
+over time, making it easier to model and forecast.
+
+H0: Time Series is not stationary H1: Times Series is stationary
+
+Here p-value for closing-price:0.9758 > 0.05, indicating series not
+stationary
+
+Whereas, p-values for return series is: 0.01 < 0.05 hence series is
+stationary
+
+**Results:**
+
+p-values for DJI returns series is: 0.01 < 0.05 hence
+'Stock_return' series is stationary.
+
+**Managerial Implication:**
+
+With stationary data, modeling and forecasting stock returns become
+more reliable as the statistical properties of the data remain
+consistent over time.
+
+```{r}
+# Augmented Dickey-Fuller (ADF) Test for stationarity
+adf_test_wn = adf.test(Stock_price); adf_test_wn # for price
+adf_test_wn = adf.test(Stock_return); adf_test_wn # for return
+
+```
+
+**Ljung Box test for autocorrelation**
+
+**Objective:**
+
+To check whether the stock return data series has autocorrelation or not
+
+**Analysis:**
+
+The Box-Pierce test assesses the presence of autocorrelation in a time
+series model. In this case, the test was applied to both returns of Dow
+Jones Industrial Avg data
+
+Null Hypothesis (H0): There is no autocorrelation in the time series
+Alternate Hypothesis (H1): There is autocorrelation in the time series
+
+Here p-value for return data series :3.619e-13 \< 0.05, indicating
+series has autocorrelation
+
+**Results:**
+
+p-values for Dow Jones Industrial Avg data returns series is: 3.619e-13
+< 0.05 hence 'Stock_return' series has autocorrelation.
+
+**Managerial Implication:**
+
+since data is auto-correlated, we can go for time-series modelling of
+data instead of regression
+
+```{r}
+#Ljung Box test for autocorrelation
+lb_test_wn = Box.test(Stock_return); lb_test_wn
+
+```
+
+**ACF and PACF Plot**
+
+**Objective:** ACF: p and PACF: q
+
+To assess the presence of autocorrelation in a time series data
+set(correlation between a time series and its lagged versions). In other
+words, it indicates whether the past values of a series can be used to
+predict its future values
+
+**Analysis:**
+
+1.  The ACF plots for the series "Stock_Return" shows the
+    autocorrelation coefficients for different lags. The autocorrelation
+    coefficient at lag k measures the linear dependence between the
+    series and its lagged version by k periods. In this specific plot,
+    the autocorrelation coefficients are plotted on the y-axis, and the
+    lags are plotted on the x-axis.
+2.  The PACF plot specifically focuses on identifying the lags at which
+    the series exhibits significant autocorrelations, net of the
+    correlations at shorter lags.
+
+**Results:**
+
+1.  From the ACF plot, most of the autocorrelation coefficients fall
+    within the shaded area around zero. This suggests that there is
+    *slightly* statistically significant autocorrelation present in the
+    series at any of the lags depicted.
+2.  In other words, the past values of the stock returns slightly appear
+    to have a significant predictive power for future returns.
+3.  There might be a significant partial autocorrelation at a specific
+    lag. This suggests that the series exhibits an autocorrelation at
+    that lag, which is not explained by the correlations at shorter
+    lags.
+
+**Managerial Implication:**
+
+The presence of a significant partial autocorrelation in stock returns
+suggests that past values of the stock returns might have a predictive
+power for future returns
+
+```{r}
+#ACF and PACF plots
+acf(Stock_return)
+pacf(Stock_return)
+```
+
+**Manual ARIMA Model**
+
+**Objective:**
+
+To interpret the Auto Regressive(AR) and Moving Average(MA) order values
+for ARMA Modelling forecast using manual ARMA
+
+**Analysis:**
+
+1.  The ARIMA model is a time series forecasting method that combines
+    auto-regressive (AR), differencing (I), and moving average (MA)
+    components.
+2.  The method was used for different combinations of coefficients,
+    output shows the coefficients estimated for the ARIMA(1,0,5) model
+    has least sigma-square.
+
+**Results:**
+
+Out of all the orders tested for ARIMA order, order with (1,0,5) has the
+least variance (sigma-square):
+
+Model Coefficients: AR (autoregressive) Coefficient (ar1): -0.8003 MA
+(moving average) Coefficients (ma1-ma5): 0.6925, 0.0014, 0.0919,
+-0.0645, 0.0457 Intercept Coefficient: 4e-04 Estimated Variance
+(sigma^2): 0.000126
+
+**Managerial Implication:**
+
+The fitted ARIMA(1,0,5) model provides valuable insights into the
+dynamics of the stock returns data and offers a framework for
+forecasting future returns.
+
+```{r}
+# ARIMA Model
+# ARIMA (1, 0, 0) or AR(1)
+ar1 = arima(Stock_return, order = c(1, 0, 0)); ar1
+
+# ARIMA (2, 0, 0) or AR(2)
+ar2 = arima(Stock_return, order = c(2, 0, 0)); ar2
+
+# ARIMA (0, 0 , 1) or MA(1)
+ma1 = arima(Stock_return, order = c(0, 0, 1)); ma1
+
+# ARIMA (0, 0, 2) or MA(2)
+ma2 = arima(Stock_return, order = c(0, 0, 2)); ma2
+
+# ARIMA (0, 0, 3) or MA(3)
+ma3 = arima(Stock_return, order = c(0, 0, 3)); ma3
+
+# ARIMA (0, 0, 4) or MA(4)
+ma4 = arima(Stock_return, order = c(0, 0, 4)); ma4
+
+# ARIMA (1, 0, 1) or ARMA(1, 1)
+arma11 = arima(Stock_return, order = c(1, 0, 1)); arma11
+
+# ARIMA (1, 0, 2) or ARMA(1, 2)
+arma12 = arima(Stock_return, order = c(1, 0, 2)); arma12
+
+# ARIMA (1, 0, 3) or ARMA(1, 3)
+arma13 = arima(Stock_return, order = c(1, 0, 3)); arma13
+
+# ARIMA (1, 0, 4) or ARMA(1, 4)
+arma14 = arima(Stock_return, order = c(1, 0, 4)); arma14
+
+# ARIMA (1, 0, 5) or ARMA(1, 5)
+arma15 = arima(Stock_return, order = c(1, 0, 5)); arma15
+```
+
+**Auto ARIMA Model**
+
+**Objective:**
+
+To interpret the Auto Regressive(AR) and Moving Average(MA) order values
+for ARMA Modelling forecast using Auto-ARMA method
+
+**Analysis:**
+
+1.  The ARIMA model is a time series forecasting method that combines
+    auto-regressive (AR), differencing (I), and moving average (MA)
+    components.
+2.  The method was used to find out best order os ARIMA for further
+    ARIMA Modelling
+
+**Results:**
+
+Auto-ARIMA gives order of (1,0,5) as the best order which matches with
+the manual ARIMA Model:
+
+Model Coefficients: AR (autoregressive) Coefficient (ar1): -0.8003 MA
+(moving average) Coefficients (ma1-ma5): 0.6925, 0.0014, 0.0919,
+-0.0645, 0.0457 Mean: 4e-04 Variance (sigma\^2): 0.0001264
+
+**Managerial Implication:**
+
+The fitted ARIMA(1,0,5) model provides valuable insights into the
+dynamics of the stock returns data and offers a framework for
+forecasting future returns.
+
+```{r}
+# Auto ARIMA
+arma_pq_jj_ds = auto.arima(Stock_return); arma_pq_jj_ds # chosen order is (1,0,5)
+```
+
+**Auto-Correlation test for residuals in ARIMA Modelling**
+
+**Objective:**
+
+To find out whether there is auto-correlation between residuals of ARIMA
+model and hence define validity of using ARIMA Forecast
+
+**Analysis:**
+
+1.  The Box-Pierce test is used to assess the goodness-of-fit of a time
+    series model by examining the autocorrelation of its residuals.
+2.  In this analysis, the test was applied to the residuals of an ARMA
+    model, specifically to evaluate whether there is significant
+    autocorrelation present.
+
+Null Hypothesis (H0): There is no autocorrelation in the residuals of
+ARIMA Model Alternate Hypothesis (H1): There is autocorrelation in the
+residuals of ARIMA Model
+
+Here p-value for ARIMA Model residuals is :0.874 > 0.05, indicating
+residuals have no auto-correlation
+
+**Results:**
+
+The obtained p-value of 0.874 is substantially greater than the
+conventional significance level of 0.05. Therefore, there we do not
+reject the null hypothesis and there is no autocorrelation in the
+residuals.
+
+**Managerial Implication:**
+
+The Box-Pierce test results provide reassurance regarding the adequacy
+of the ARMA model in forecasting the data, hence we can forecast the
+data with ARIMA Modelling
+
+```{r}
+# Autocorrelation test for residuals
+lb_test_arma_pq_jj_ds = Box.test(arma_pq_jj_ds$residuals); lb_test_arma_pq_jj_ds #no-autocorrelation (do not reject null) good ARIMA Model, now forecast
+```
+
+**Forecasting with ARIMA Modelling**
+
+**Objective:**
+
+To forecast the stock data returns using ARIMA Modelling
+
+**Analysis:**
+
+Since there is no auto-correlation between residuals of ARIMA(1,0,5), we
+forecasted the stock values for next 500 time units.
+
+**Results:**
+
+ARIMA modelling forecasted the stock values for next 500 time units.
+
+**Managerial Implication:**
+
+Now that we have forecasted the stock values using ARIMA modelling we
+test its validity.
+
+```{r}
+#ARIMA Modelling
+jj_ds_fpq = forecast(arma_pq_jj_ds, h = 500)
+plot(jj_ds_fpq)
+```
+
+**Auto-Correlation test for residual square**
+
+**Objective:**
+
+To predict the model's volatility based on auto-correlation between
+residual-square(variance) of ARIMA model
+
+**Analysis:**
+
+1.  The Box-Pierce test is used to assess the goodness-of-fit of a time
+    series model by examining the autocorrelation of its
+    residuals-square.
+2.  In this analysis, the test was applied to the residuals-square of an
+    ARIMA model, specifically to evaluate whether there is significant
+    autocorrelation present or not.
+
+Null Hypothesis (H0): There is no autocorrelation in the
+residuals-square of ARIMA Model Alternate Hypothesis (H1): There is
+autocorrelation in the residuals-square of ARIMA Model
+
+Here p-value for ARIMA Model residuals-square is : 2.2e-16 < 0.05,
+indicating residuals have no auto-correlation
+
+**Results:**
+
+The obtained p-value of 2.2e-16 is substantially less than the
+conventional significance level of 0.05. Therefore, we reject the null
+hypothesis and there is autocorrelation in the residuals.
+
+**Managerial Implication:**
+
+The Box-Pierce test results provide information that there is
+significant autocorrelation amongst residual-square and hence
+significant volatility.
+
+```{r}
+# Autocorrelation test for residual square(to check autocorrelation in residual square)
+lb_test_arma_pq_jj_ds = Box.test(jj_ds_fpq$residuals^2); lb_test_arma_pq_jj_ds #there is autocorrelation
+```
+
+**ARCH-LM test for heteroskedasticity**
+
+**Objective:**
+
+To predict the model's volatility based on ARCH-LM test for
+heteroskedasticity in residual-square of ARIMA model
+
+**Analysis:**
+
+1.  The ARCH (Autoregressive Conditional Heteroscedasticity) LM-test is
+    used to assess whether there are ARCH effects present in the
+    residuals of a time series model.
+2.  ARCH effects refer to the presence of conditional
+    heteroscedasticity, where the variance of the residuals depends on
+    past values of the series.
+
+Null Hypothesis (H0): There is no ARCH effects(Homoskedastic) Alternate
+Hypothesis (H1): There is ARCH effects present in
+residual-square(variance) (Heteroskedastic)
+
+Here p-value for ARIMA Model residuals-square is : 2.2e-16 < 0.05,
+indicating heteroskedasticity in residual-square
+
+**Results:**
+
+The obtained p-value of 2.2e-16 is substantially less than the
+conventional significance level of 0.05. Therefore, we reject the null
+hypothesis and there is heteroskedasticity in residual-square.
+
+**Managerial Implication:**
+
+The significant ARCH effects detected in the squared residuals indicate
+that the current time series model fails to account for conditional
+heteroscedasticity adequately.
+
+```{r}
+#Test for Volatility Clustering or Heteroskedasticity: Box Test 
+
+nse_ret_arch_test = ArchTest(jj_ds_fpq$residuals^2, lags = 20) # H0: No ARCH Effects, hence homoskedastic, go for GARCH
+nse_ret_arch_test #here there is ARCH effect hence residual square is heteroskedastic
+
+```
+
+**GARCH Modelling for ARIMA model**
+
+**Objective:**
+
+To model ARIMA data with GARCH and test the fit of GARCH model with data
+
+**Analysis:**
+
+The GARCH tests the fit of the GARCH model to the data. These statistics
+and tests evaluate the adequacy of the model in capturing the volatility
+dynamics of the time series.
+
+**Results:**
+
+Joint Statistic: The joint statistic is 89.5651, indicating the overall
+goodness-of-fit of the GARCH model. Individual Statistics: mu (Mean):
+0.2169 omega (Constant Term in Volatility Equation): 25.7892 alpha1
+(Coefficient of Lagged Squared Errors): 4.2219 beta1 (Coefficient of
+Lagged Conditional Variance): 2.4185 Asymptotic Critical Values (10%,
+5%, 1%): For Joint Statistic: 1.07, 1.24, 1.6 For Individual Statistics:
+0.35, 0.47, 0.75
+
+**Managerial Implication:**
+
+GARCH model provides insights into the volatility dynamics of the time
+series, the results of the goodness-of-fit test suggest that the model
+may have limitations in accurately capturing the underlying patterns.
+
+```{r}
+#GARCH Model
+
+garch_model1 = ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1,1)), mean.model = list(armaOrder = c(0,0), include.mean = TRUE)) # since we are modelling mean
+nse_ret_garch1 = ugarchfit(garch_model1, data = jj_ds_fpq$residuals^2);
+nse_ret_garch1
+```
+
+**ARCH-LM test for heteroskedasticity of GARCH Modelling**
+
+**Objective:**
+
+To predict the GARCH model's volatility based on ARCH-LM test for
+heteroskedasticity in residual of GARCH model
+
+**Analysis:**
+
+1.  The ARCH (Autoregressive Conditional Heteroscedasticity) LM-test is
+    used to assess whether there are ARCH effects present in the
+    residuals of a time series model.
+2.  ARCH effects refer to the presence of conditional
+    heteroscedasticity, where the variance of the residuals depends on
+    past values of the series.
+
+Null Hypothesis (H0): There is no ARCH effects(Homoskedastic) Alternate
+Hypothesis (H1): There is ARCH effects present in
+residual-square(variance) (Heteroskedastic)
+
+Here p-value for ARIMA Model residuals-square is : 2.2e-16 \< 0.05,
+indicating heteroskedasticity in residual
+
+**Results:**
+
+The obtained p-value of 2.2e-16 is substantially less than the
+conventional significance level of 0.05. Therefore, we reject the null
+hypothesis and there is heteroskedasticity in residual of GARCH Model
+indicating the inadquacy of GARCH Model.
+
+**Managerial Implication:**
+
+The significant ARCH effects detected in the residuals indicate that the
+current GARCH model fails to account for conditional heteroscedasticity
+adequately.
+
+```{r}
+#Heteroskedasticity test
+# Test for Volatility Clustering or Heteroskedasticity: ARCH Test
+gar_resd = residuals(nse_ret_garch1)
+stk_ret_arch_test1 = ArchTest(gar_resd, lags = 1) # H0: No ARCH Effects
+stk_ret_arch_test1 # Inference : Return Series is Heteroskedastic (Has Volatility Clustering
+```
+
+**GARCH Modelling**
+
+**Objective:**
+
+To test the fit of GARCH Model on stock return data
+
+**Analysis:**
+
+The GARCH tests the fit of the GARCH model to the data. These statistics
+and tests evaluate the adequacy of the model in capturing the volatility
+dynamics of the time series.
+
+**Results:**
+
+Conditional Variance Dynamics: GARCH Model: sGARCH(1,1) Mean Model:
+ARFIMA(1,0,5) Distribution: Normal Optimal Parameters: Parameter
+estimates and robust standard errors for AR (ar1), MA (ma1-ma5), omega,
+alpha1, and beta1 are provided. Log-Likelihood and Information Criteria:
+Log-likelihood: 6733.164 Information criteria including Akaike, Bayes,
+Shibata, and Hannan-Quinn are reported. Adjusted Pearson Goodness-of-Fit
+Test: Tests for goodness-of-fit of the model. Extremely low p-values
+indicate significant discrepancies between the model and the data.
+
+**Managerial Implication:**
+
+Model Adequacy: The GARCH model with specified parameters captures the
+volatility dynamics and mean behavior to some extent.
+
+Model Evaluation: Diagnostic tests indicate no significant issues such
+as serial correlation or ARCH effects in the residuals. However,
+goodness-of-fit tests reveal discrepancies between the model and the
+data.
+
+Forecast Reliability: Caution should be exercised when using forecasts
+from the GARCH model, considering potential limitations in the model
+fit.
+
+Risk Management: Inaccurate volatility modeling can impact risk
+management decisions. Further evaluation and refinement of the GARCH
+model or consideration of alternative models may be necessary for robust
+risk assessment.
+
+GARCH model provides insights into volatility dynamics, discrepancies in
+goodness-of-fit tests suggest potential limitations.
+
+```{r}
+garch_modelf = ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1,1)), mean.model = list(armaOrder = c(1,5), include.mean = TRUE))
+stk_ret_garch = ugarchfit(garch_modelf, data = Stock_return);stk_ret_garch
+```
+
+**GARCH Modelling**
+
+**Objective:**
+To forecast volatility using the fitted GARCH model for the next 50 time
+points. 
+
+**Analysis:**
+Used the 'ugarchforecast' function to generate
+volatility forecasts for the next 50 time points.
+
+**Results:**
+
+**GARCH Model Forecast:**
+Model: sGARCH
+- Horizon: 50
+- Roll Steps: 0
+- Out of Sample: 0
+
+0-roll forecast [T0=2022-03-02]: - Forecasted Series: - T+1 to T+50:
+Contains forecasted values of volatility (Sigma) for each time point.
+
+**Implication:**
+The forecasted values represent the predicted volatility for the next 50
+time points based on the fitted GARCH model. These forecasts can be
+useful for risk management and decision-making, providing insights into
+the expected future volatility of the financial time series.
+
+```{r}
+# GARCH Forecast
+stk_ret_garch_forecast1 = ugarchforecast(stk_ret_garch, n.ahead = 50); stk_ret_garch_forecast1
+```
+
+```{r}
+plot(stk_ret_garch_forecast1)
+```
